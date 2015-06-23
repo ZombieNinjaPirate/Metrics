@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import psutil
 import socket
 import time
 from Bifrozt.CPU import Proc
@@ -12,7 +13,7 @@ from influxdb.influxdb08 import InfluxDBClient
 
 __author__ = 'Are Hansen'
 __date__ = '2015, June 18'
-__version__ = '0.0.4'
+__version__ = '0.0.5'
 
 
 def parse_args():
@@ -66,6 +67,13 @@ def parse_args():
                     help='Percentage of used RAM',
                     action='store_true'
                     )
+    met.add_argument(
+                    '-mn',
+                    dest='inet',
+                    help='Total bytes sent and received',
+                    action='store_true'
+                    )
+
     args = parser.parse_args()
     return args
 
@@ -114,6 +122,30 @@ def ram_usage():
     return json_body
 
 
+def inet_bytes():
+    metric = "inet_io.{0}".format(socket.gethostname())
+    json_body = [
+    {
+        "name": metric,
+        "columns": [
+            "time",
+            "host",
+            "bytes_sent",
+            "byte_received"
+        ],
+        "points": [
+            [
+                float(time.time()),
+                socket.gethostname(),
+                psutil.net_io_counters().bytes_sent,
+                psutil.net_io_counters().bytes_recv
+            ]
+        ]
+      }
+    ]
+    return json_body
+
+
 def check_args(args):
     """Process those angry args. """
     cli = InfluxDBClient(
@@ -125,7 +157,9 @@ def check_args(args):
     if args.cpu:
         cpu = cpu_load()
         cli.write_points(cpu)
-
+    if args.inet:
+        inet = inet_bytes()
+        cli.write_points(inet)
 
 def main():
     """Main function. """
